@@ -3,16 +3,15 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"github.com/flashbots/go-boost-utils/types"
 	"os"
+
+	"github.com/flashbots/go-boost-utils/types"
 )
 
 type rawConfiguration struct {
-	FeeRecipient          string `json:"fee_recipient"`
 	ValidatorRegistration struct {
 		BuilderRelays []string `json:"builder_relays"`
 		Enabled       bool     `json:"enabled"`
-		GasLimit      string   `json:"gas_limit"`
 	} `json:"validator_registration"`
 }
 
@@ -43,10 +42,8 @@ func newRawConfigurationFile(filename string) (*rawConfigurationFile, error) {
 
 // ProposerConfig holds one proposer configuration.
 type ProposerConfig struct {
-	FeeRecipient types.Address
-	Enabled      bool
-	Relays       []RelayEntry
-	GasLimit     types.U256Str
+	Enabled bool
+	Relays  []RelayEntry
 }
 
 // ProposerConfigurationStorage holds both the default configuration and the proposers ones.
@@ -107,21 +104,8 @@ func (s *ProposerConfigurationStorage) GetProposerConfiguration(proposer types.P
 // previously extracted from a JSON file and the relay groups available.
 // Used to create the default configuration and each proposer's one.
 func newConfigurationStorage(rawConf *rawConfiguration, groups map[string][]string) (*ProposerConfig, error) {
-	feeRecipient, err := types.HexToAddress(rawConf.FeeRecipient)
-	if err != nil {
-		return nil, err
-	}
-
-	gasLimit := types.U256Str{}
-	err = gasLimit.UnmarshalText([]byte(rawConf.ValidatorRegistration.GasLimit))
-	if err != nil {
-		return nil, err
-	}
-
 	configuration := &ProposerConfig{
-		FeeRecipient: feeRecipient,
-		Enabled:      rawConf.ValidatorRegistration.Enabled,
-		GasLimit:     gasLimit,
+		Enabled: rawConf.ValidatorRegistration.Enabled,
 	}
 
 	if len(rawConf.ValidatorRegistration.BuilderRelays) == 0 {
