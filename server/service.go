@@ -16,6 +16,7 @@ import (
 	"github.com/flashbots/go-utils/httplogger"
 	"github.com/flashbots/mev-boost/config"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -44,6 +45,7 @@ type BoostServiceOpts struct {
 	GenesisForkVersionHex string
 	RelayRequestTimeout   time.Duration
 	RelayCheck            bool
+	EnableMetrics         bool
 }
 
 // BoostService - the mev-boost service
@@ -53,6 +55,9 @@ type BoostService struct {
 	log        *logrus.Entry
 	srv        *http.Server
 	relayCheck bool
+
+	enableMetrics bool
+	prometheusSrv *http.Server
 
 	builderSigningDomain types.Domain
 	httpClient           http.Client
@@ -73,11 +78,12 @@ func NewBoostService(opts BoostServiceOpts) (*BoostService, error) {
 	}
 
 	return &BoostService{
-		listenAddr: opts.ListenAddr,
-		relays:     opts.Relays,
-		log:        opts.Log.WithField("module", "service"),
-		relayCheck: opts.RelayCheck,
-		bids:       make(map[bidRespKey]bidResp),
+		listenAddr:    opts.ListenAddr,
+		relays:        opts.Relays,
+		log:           opts.Log.WithField("module", "service"),
+		relayCheck:    opts.RelayCheck,
+		enableMetrics: opts.EnableMetrics,
+		bids:          make(map[bidRespKey]bidResp),
 
 		builderSigningDomain: builderSigningDomain,
 		httpClient: http.Client{
@@ -129,6 +135,10 @@ func (m *BoostService) StartHTTPServer() error {
 	}
 
 	go m.startBidCacheCleanupTask()
+
+	if m.enableMetrics {
+		m.prometheusSrv = m.startPrometheusServer()
+	}
 
 	m.srv = &http.Server{
 		Addr:    m.listenAddr,
@@ -506,4 +516,21 @@ func (m *BoostService) CheckRelays() bool {
 	}
 
 	return true
+}
+
+// StartPrometheusServer is responsible for starting a HTTP server for Prometheus in order to listen for metrics
+func (m *BoostService) startPrometheusServer() *http.Server {
+	srv := &http.Server{
+		Addr:              ":9090",
+		Handler:           promhttp.Handler(),
+		ReadHeaderTimeout: time.Duration(config.ServerReadHeaderTimeoutMs) * time.Millisecond,
+	}
+
+	go func() {
+		m.log.Println("starting up prometheus server on :9090")
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			m.log.WithError(err).WithField("prometheus", "Prometheus server issue")
+		}
+	}()
+	return srv
 }

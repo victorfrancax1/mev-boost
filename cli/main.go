@@ -28,6 +28,7 @@ var (
 	defaultListenAddr         = getEnv("BOOST_LISTEN_ADDR", "localhost:18550")
 	defaultRelayTimeoutMs     = getEnvInt("RELAY_TIMEOUT_MS", 2000) // timeout for all the requests to the relay
 	defaultRelayCheck         = os.Getenv("RELAY_STARTUP_CHECK") != ""
+	defaultEnableMetrics      = os.Getenv("ENABLE_PROMETHEUS_METRICS") != ""
 	defaultGenesisForkVersion = getEnv("GENESIS_FORK_VERSION", "")
 
 	// cli flags
@@ -39,6 +40,7 @@ var (
 	relayURLs      = flag.String("relays", "", "relay urls - single entry or comma-separated list (scheme://pubkey@host)")
 	relayTimeoutMs = flag.Int("request-timeout", defaultRelayTimeoutMs, "timeout for requests to a relay [ms]")
 	relayCheck     = flag.Bool("relay-check", defaultRelayCheck, "check relay status on startup and on the status API call")
+	enableMetrics  = flag.Bool("metrics", defaultEnableMetrics, "enable prometheus metrics at /metrics")
 
 	// helpers
 	useGenesisForkVersionMainnet = flag.Bool("mainnet", false, "use Mainnet")
@@ -119,6 +121,7 @@ func Main() {
 		GenesisForkVersionHex: genesisForkVersionHex,
 		RelayRequestTimeout:   relayTimeout,
 		RelayCheck:            *relayCheck,
+		EnableMetrics:         *enableMetrics,
 	}
 	server, err := server.NewBoostService(opts)
 	if err != nil {
